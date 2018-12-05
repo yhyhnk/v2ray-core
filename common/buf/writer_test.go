@@ -17,7 +17,7 @@ func TestWriter(t *testing.T) {
 	assert := With(t)
 
 	lb := New()
-	assert(lb.AppendSupplier(ReadFrom(rand.Reader)), IsNil)
+	common.Must2(lb.ReadFrom(rand.Reader))
 
 	expectedBytes := append([]byte(nil), lb.Bytes()...)
 
@@ -25,7 +25,7 @@ func TestWriter(t *testing.T) {
 
 	writer := NewBufferedWriter(NewWriter(writeBuffer))
 	writer.SetBuffered(false)
-	err := writer.WriteMultiBuffer(NewMultiBufferValue(lb))
+	err := writer.WriteMultiBuffer(MultiBuffer{lb})
 	assert(err, IsNil)
 	assert(writer.Flush(), IsNil)
 	assert(expectedBytes, Equals, writeBuffer.Bytes())
@@ -41,7 +41,9 @@ func TestBytesWriterReadFrom(t *testing.T) {
 	writer.SetBuffered(false)
 	nBytes, err := reader.WriteTo(writer)
 	assert(nBytes, Equals, int64(size))
-	assert(err, IsNil)
+	if err != nil {
+		t.Fatal("expect success, but actually error: ", err.Error())
+	}
 
 	mb, err := pReader.ReadMultiBuffer()
 	assert(err, IsNil)
@@ -52,7 +54,7 @@ func TestDiscardBytes(t *testing.T) {
 	assert := With(t)
 
 	b := New()
-	common.Must(b.Reset(ReadFullFrom(rand.Reader, Size)))
+	common.Must2(b.ReadFullFrom(rand.Reader, Size))
 
 	nBytes, err := io.Copy(DiscardBytes, b)
 	assert(nBytes, Equals, int64(Size))

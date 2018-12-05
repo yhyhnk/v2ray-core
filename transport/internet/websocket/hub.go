@@ -41,7 +41,7 @@ func (h *requestHandler) ServeHTTP(writer http.ResponseWriter, request *http.Req
 
 	forwardedAddrs := http_proto.ParseXForwardedFor(request.Header)
 	remoteAddr := conn.RemoteAddr()
-	if len(forwardedAddrs) > 0 && forwardedAddrs[0].Family().Either(net.AddressFamilyIPv4, net.AddressFamilyIPv6) {
+	if len(forwardedAddrs) > 0 && forwardedAddrs[0].Family().IsIP() {
 		remoteAddr.(*net.TCPAddr).IP = forwardedAddrs[0].IP()
 	}
 
@@ -55,16 +55,15 @@ type Listener struct {
 	addConn  internet.ConnHandler
 }
 
-func ListenWS(ctx context.Context, address net.Address, port net.Port, addConn internet.ConnHandler) (internet.Listener, error) {
-	networkSettings := internet.StreamSettingsFromContext(ctx)
-	wsSettings := networkSettings.ProtocolSettings.(*Config)
+func ListenWS(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, addConn internet.ConnHandler) (internet.Listener, error) {
+	wsSettings := streamSettings.ProtocolSettings.(*Config)
 
 	var tlsConfig *tls.Config
-	if config := v2tls.ConfigFromContext(ctx); config != nil {
+	if config := v2tls.ConfigFromStreamSettings(streamSettings); config != nil {
 		tlsConfig = config.GetTLSConfig()
 	}
 
-	listener, err := listenTCP(ctx, address, port, tlsConfig)
+	listener, err := listenTCP(ctx, address, port, tlsConfig, streamSettings.SocketSettings)
 	if err != nil {
 		return nil, err
 	}
@@ -84,11 +83,11 @@ func ListenWS(ctx context.Context, address net.Address, port net.Port, addConn i
 	return l, err
 }
 
-func listenTCP(ctx context.Context, address net.Address, port net.Port, tlsConfig *tls.Config) (net.Listener, error) {
+func listenTCP(ctx context.Context, address net.Address, port net.Port, tlsConfig *tls.Config, sockopt *internet.SocketConfig) (net.Listener, error) {
 	listener, err := internet.ListenSystem(ctx, &net.TCPAddr{
 		IP:   address.IP(),
 		Port: int(port),
-	})
+	}, sockopt)
 	if err != nil {
 		return nil, newError("failed to listen TCP on", address, ":", port).Base(err)
 	}

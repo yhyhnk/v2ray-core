@@ -18,6 +18,7 @@ import (
 	_ "v2ray.com/core/app/dns"
 	_ "v2ray.com/core/app/log"
 	_ "v2ray.com/core/app/policy"
+	_ "v2ray.com/core/app/reverse"
 	_ "v2ray.com/core/app/router"
 	_ "v2ray.com/core/app/stats"
 
@@ -36,6 +37,7 @@ import (
 	_ "v2ray.com/core/transport/internet/domainsocket"
 	_ "v2ray.com/core/transport/internet/http"
 	_ "v2ray.com/core/transport/internet/kcp"
+	_ "v2ray.com/core/transport/internet/quic"
 	_ "v2ray.com/core/transport/internet/tcp"
 	_ "v2ray.com/core/transport/internet/tls"
 	_ "v2ray.com/core/transport/internet/udp"

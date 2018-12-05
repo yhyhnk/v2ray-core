@@ -4,24 +4,24 @@ import (
 	"context"
 	"time"
 
-	"v2ray.com/core/common/session"
-	"v2ray.com/core/common/task"
-
 	"v2ray.com/core"
 	"v2ray.com/core/common"
 	"v2ray.com/core/common/buf"
 	"v2ray.com/core/common/net"
 	"v2ray.com/core/common/protocol"
 	"v2ray.com/core/common/retry"
+	"v2ray.com/core/common/session"
 	"v2ray.com/core/common/signal"
-	"v2ray.com/core/proxy"
+	"v2ray.com/core/common/task"
+	"v2ray.com/core/features/policy"
+	"v2ray.com/core/transport"
 	"v2ray.com/core/transport/internet"
 )
 
 // Client is a Socks5 client.
 type Client struct {
 	serverPicker  protocol.ServerPicker
-	policyManager core.PolicyManager
+	policyManager policy.Manager
 }
 
 // NewClient create a new Socks5 client based on the given config.
@@ -41,12 +41,12 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 	v := core.MustFromContext(ctx)
 	return &Client{
 		serverPicker:  protocol.NewRoundRobinServerPicker(serverList),
-		policyManager: v.PolicyManager(),
+		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
 	}, nil
 }
 
 // Process implements proxy.Outbound.Process.
-func (c *Client) Process(ctx context.Context, link *core.Link, dialer proxy.Dialer) error {
+func (c *Client) Process(ctx context.Context, link *transport.Link, dialer internet.Dialer) error {
 	outbound := session.OutboundFromContext(ctx)
 	if outbound == nil || !outbound.Target.IsValid() {
 		return newError("target not specified.")

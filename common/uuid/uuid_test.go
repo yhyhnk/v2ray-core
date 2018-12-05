@@ -3,6 +3,8 @@ package uuid_test
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"v2ray.com/core/common"
 	"v2ray.com/core/common/compare"
 	. "v2ray.com/core/common/uuid"
@@ -15,8 +17,8 @@ func TestParseBytes(t *testing.T) {
 
 	uuid, err := ParseBytes(bytes)
 	common.Must(err)
-	if err := compare.StringEqualWithDetail(uuid.String(), str); err != nil {
-		t.Fatal(err)
+	if diff := cmp.Diff(uuid.String(), str); diff != "" {
+		t.Error(diff)
 	}
 
 	_, err = ParseBytes([]byte{1, 3, 2, 4})
@@ -70,8 +72,8 @@ func TestRandom(t *testing.T) {
 func TestEquals(t *testing.T) {
 	assert := With(t)
 
-	var uuid *UUID = nil
-	var uuid2 *UUID = nil
+	var uuid *UUID
+	var uuid2 *UUID
 	assert(uuid.Equals(uuid2), IsTrue)
 
 	uuid3 := New()

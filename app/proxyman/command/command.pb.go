@@ -1,12 +1,11 @@
 package command
 
 import (
-	"context"
+	context "context"
 	fmt "fmt"
-	math "math"
-
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	math "math"
 	core "v2ray.com/core"
 	protocol "v2ray.com/core/common/protocol"
 	serial "v2ray.com/core/common/serial"
@@ -21,7 +20,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type AddUserOperation struct {
 	User                 *protocol.User `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`

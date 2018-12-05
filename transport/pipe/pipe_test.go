@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"v2ray.com/core/common"
 	"v2ray.com/core/common/buf"
 	"v2ray.com/core/common/task"
 	. "v2ray.com/core/transport/pipe"
@@ -16,14 +17,18 @@ func TestPipeReadWrite(t *testing.T) {
 	assert := With(t)
 
 	pReader, pWriter := New(WithSizeLimit(1024))
-	payload := []byte{'a', 'b', 'c', 'd'}
+
 	b := buf.New()
-	b.Write(payload)
-	assert(pWriter.WriteMultiBuffer(buf.NewMultiBufferValue(b)), IsNil)
+	b.WriteString("abcd")
+	assert(pWriter.WriteMultiBuffer(buf.MultiBuffer{b}), IsNil)
+
+	b2 := buf.New()
+	b2.WriteString("efg")
+	assert(pWriter.WriteMultiBuffer(buf.MultiBuffer{b2}), IsNil)
 
 	rb, err := pReader.ReadMultiBuffer()
 	assert(err, IsNil)
-	assert(rb.String(), Equals, b.String())
+	assert(rb.String(), Equals, "abcdefg")
 }
 
 func TestPipeCloseError(t *testing.T) {
@@ -33,7 +38,7 @@ func TestPipeCloseError(t *testing.T) {
 	payload := []byte{'a', 'b', 'c', 'd'}
 	b := buf.New()
 	b.Write(payload)
-	assert(pWriter.WriteMultiBuffer(buf.NewMultiBufferValue(b)), IsNil)
+	assert(pWriter.WriteMultiBuffer(buf.MultiBuffer{b}), IsNil)
 	pWriter.CloseError()
 
 	rb, err := pReader.ReadMultiBuffer()
@@ -48,7 +53,7 @@ func TestPipeClose(t *testing.T) {
 	payload := []byte{'a', 'b', 'c', 'd'}
 	b := buf.New()
 	b.Write(payload)
-	assert(pWriter.WriteMultiBuffer(buf.NewMultiBufferValue(b)), IsNil)
+	assert(pWriter.WriteMultiBuffer(buf.MultiBuffer{b}), IsNil)
 	assert(pWriter.Close(), IsNil)
 
 	rb, err := pReader.ReadMultiBuffer()
@@ -66,26 +71,25 @@ func TestPipeLimitZero(t *testing.T) {
 	pReader, pWriter := New(WithSizeLimit(0))
 	bb := buf.New()
 	bb.Write([]byte{'a', 'b'})
-	assert(pWriter.WriteMultiBuffer(buf.NewMultiBufferValue(bb)), IsNil)
+	assert(pWriter.WriteMultiBuffer(buf.MultiBuffer{bb}), IsNil)
 
 	err := task.Run(task.Parallel(func() error {
 		b := buf.New()
 		b.Write([]byte{'c', 'd'})
-		return pWriter.WriteMultiBuffer(buf.NewMultiBufferValue(b))
+		return pWriter.WriteMultiBuffer(buf.MultiBuffer{b})
 	}, func() error {
 		time.Sleep(time.Second)
 
-		rb, err := pReader.ReadMultiBuffer()
-		if err != nil {
+		var container buf.MultiBufferContainer
+		if err := buf.Copy(pReader, &container); err != nil {
 			return err
 		}
-		assert(rb.String(), Equals, "ab")
 
-		rb, err = pReader.ReadMultiBuffer()
-		if err != nil {
-			return err
-		}
-		assert(rb.String(), Equals, "cd")
+		assert(container.String(), Equals, "abcd")
+		return nil
+	}, func() error {
+		time.Sleep(time.Second * 2)
+		pWriter.Close()
 		return nil
 	}))()
 
@@ -103,8 +107,8 @@ func TestPipeWriteMultiThread(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			b := buf.New()
-			b.WriteBytes('a', 'b', 'c', 'd')
-			pWriter.WriteMultiBuffer(buf.NewMultiBufferValue(b))
+			b.WriteString("abcd")
+			pWriter.WriteMultiBuffer(buf.MultiBuffer{b})
 			wg.Done()
 		}()
 	}
@@ -124,4 +128,19 @@ func TestInterfaces(t *testing.T) {
 
 	assert((*Reader)(nil), Implements, (*buf.Reader)(nil))
 	assert((*Reader)(nil), Implements, (*buf.TimeoutReader)(nil))
+}
+
+func BenchmarkPipeReadWrite(b *testing.B) {
+	reader, writer := New(WithoutSizeLimit())
+	a := buf.New()
+	a.Extend(buf.Size)
+	c := buf.MultiBuffer{a}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		common.Must(writer.WriteMultiBuffer(c))
+		d, err := reader.ReadMultiBuffer()
+		common.Must(err)
+		c = d
+	}
 }

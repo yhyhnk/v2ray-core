@@ -16,17 +16,18 @@ import (
 	"v2ray.com/core/common/session"
 	"v2ray.com/core/common/signal"
 	"v2ray.com/core/common/task"
-	"v2ray.com/core/proxy"
+	"v2ray.com/core/features/policy"
 	"v2ray.com/core/proxy/vmess"
 	"v2ray.com/core/proxy/vmess/encoding"
+	"v2ray.com/core/transport"
 	"v2ray.com/core/transport/internet"
 )
 
 // Handler is an outbound connection handler for VMess protocol.
 type Handler struct {
-	serverList   *protocol.ServerList
-	serverPicker protocol.ServerPicker
-	v            *core.Instance
+	serverList    *protocol.ServerList
+	serverPicker  protocol.ServerPicker
+	policyManager policy.Manager
 }
 
 // New creates a new VMess outbound handler.
@@ -39,17 +40,19 @@ func New(ctx context.Context, config *Config) (*Handler, error) {
 		}
 		serverList.AddServer(s)
 	}
+
+	v := core.MustFromContext(ctx)
 	handler := &Handler{
-		serverList:   serverList,
-		serverPicker: protocol.NewRoundRobinServerPicker(serverList),
-		v:            core.MustFromContext(ctx),
+		serverList:    serverList,
+		serverPicker:  protocol.NewRoundRobinServerPicker(serverList),
+		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
 	}
 
 	return handler, nil
 }
 
 // Process implements proxy.Outbound.Process().
-func (v *Handler) Process(ctx context.Context, link *core.Link, dialer proxy.Dialer) error {
+func (v *Handler) Process(ctx context.Context, link *transport.Link, dialer internet.Dialer) error {
 	var rec *protocol.ServerSpec
 	var conn internet.Connection
 
@@ -93,14 +96,14 @@ func (v *Handler) Process(ctx context.Context, link *core.Link, dialer proxy.Dia
 		Option:  protocol.RequestOptionChunkStream,
 	}
 
-	account := request.User.Account.(*vmess.InternalAccount)
+	account := request.User.Account.(*vmess.MemoryAccount)
 	request.Security = account.Security
 
 	if request.Security == protocol.SecurityType_AES128_GCM || request.Security == protocol.SecurityType_NONE || request.Security == protocol.SecurityType_CHACHA20_POLY1305 {
 		request.Option.Set(protocol.RequestOptionChunkMasking)
 	}
 
-	if enablePadding && request.Option.Has(protocol.RequestOptionChunkMasking) {
+	if shouldEnablePadding(request.Security) && request.Option.Has(protocol.RequestOptionChunkMasking) {
 		request.Option.Set(protocol.RequestOptionGlobalPadding)
 	}
 
@@ -108,7 +111,7 @@ func (v *Handler) Process(ctx context.Context, link *core.Link, dialer proxy.Dia
 	output := link.Writer
 
 	session := encoding.NewClientSession(protocol.DefaultIDHash)
-	sessionPolicy := v.v.PolicyManager().ForLevel(request.User.Level)
+	sessionPolicy := v.policyManager.ForLevel(request.User.Level)
 
 	ctx, cancel := context.WithCancel(ctx)
 	timer := signal.CancelAfterInactivity(ctx, cancel, sessionPolicy.Timeouts.ConnectionIdle)
@@ -169,6 +172,10 @@ func (v *Handler) Process(ctx context.Context, link *core.Link, dialer proxy.Dia
 var (
 	enablePadding = false
 )
+
+func shouldEnablePadding(s protocol.SecurityType) bool {
+	return enablePadding || s == protocol.SecurityType_AES128_GCM || s == protocol.SecurityType_CHACHA20_POLY1305 || s == protocol.SecurityType_AUTO
+}
 
 func init() {
 	common.Must(common.RegisterConfig((*Config)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {

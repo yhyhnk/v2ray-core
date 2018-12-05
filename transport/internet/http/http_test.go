@@ -22,16 +22,14 @@ func TestHTTPConnection(t *testing.T) {
 
 	port := tcp.PickPort()
 
-	lctx := internet.ContextWithStreamSettings(context.Background(), &internet.MemoryStreamConfig{
+	listener, err := Listen(context.Background(), net.LocalHostIP, port, &internet.MemoryStreamConfig{
 		ProtocolName:     "http",
 		ProtocolSettings: &Config{},
 		SecurityType:     "tls",
 		SecuritySettings: &tls.Config{
 			Certificate: []*tls.Certificate{tls.ParseCertificate(cert.MustGenerate(nil, cert.CommonName("www.v2ray.com")))},
 		},
-	})
-
-	listener, err := Listen(lctx, net.LocalHostIP, port, func(conn internet.Connection) {
+	}, func(conn internet.Connection) {
 		go func() {
 			defer conn.Close()
 
@@ -39,7 +37,7 @@ func TestHTTPConnection(t *testing.T) {
 			defer b.Release()
 
 			for {
-				if err := b.Reset(buf.ReadFrom(conn)); err != nil {
+				if _, err := b.ReadFrom(conn); err != nil {
 					return
 				}
 				nBytes, err := conn.Write(b.Bytes())
@@ -54,7 +52,8 @@ func TestHTTPConnection(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	dctx := internet.ContextWithStreamSettings(context.Background(), &internet.MemoryStreamConfig{
+	dctx := context.Background()
+	conn, err := Dial(dctx, net.TCPDestination(net.LocalHostIP, port), &internet.MemoryStreamConfig{
 		ProtocolName:     "http",
 		ProtocolSettings: &Config{},
 		SecurityType:     "tls",
@@ -63,7 +62,6 @@ func TestHTTPConnection(t *testing.T) {
 			AllowInsecure: true,
 		},
 	})
-	conn, err := Dial(dctx, net.TCPDestination(net.LocalHostIP, port))
 	assert(err, IsNil)
 	defer conn.Close()
 
@@ -76,13 +74,15 @@ func TestHTTPConnection(t *testing.T) {
 	assert(nBytes, Equals, N)
 	assert(err, IsNil)
 
-	assert(b2.Reset(buf.ReadFullFrom(conn, N)), IsNil)
+	b2.Clear()
+	common.Must2(b2.ReadFullFrom(conn, N))
 	assert(b2.Bytes(), Equals, b1)
 
 	nBytes, err = conn.Write(b1)
 	assert(nBytes, Equals, N)
 	assert(err, IsNil)
 
-	assert(b2.Reset(buf.ReadFullFrom(conn, N)), IsNil)
+	b2.Clear()
+	common.Must2(b2.ReadFullFrom(conn, N))
 	assert(b2.Bytes(), Equals, b1)
 }

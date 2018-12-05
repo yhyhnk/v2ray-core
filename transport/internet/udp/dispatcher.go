@@ -5,18 +5,19 @@ import (
 	"sync"
 	"time"
 
-	"v2ray.com/core"
 	"v2ray.com/core/common"
 	"v2ray.com/core/common/buf"
 	"v2ray.com/core/common/net"
 	"v2ray.com/core/common/session"
 	"v2ray.com/core/common/signal"
+	"v2ray.com/core/features/routing"
+	"v2ray.com/core/transport"
 )
 
 type ResponseCallback func(ctx context.Context, payload *buf.Buffer)
 
 type connEntry struct {
-	link   *core.Link
+	link   *transport.Link
 	timer  signal.ActivityUpdater
 	cancel context.CancelFunc
 }
@@ -24,11 +25,11 @@ type connEntry struct {
 type Dispatcher struct {
 	sync.RWMutex
 	conns      map[net.Destination]*connEntry
-	dispatcher core.Dispatcher
+	dispatcher routing.Dispatcher
 	callback   ResponseCallback
 }
 
-func NewDispatcher(dispatcher core.Dispatcher, callback ResponseCallback) *Dispatcher {
+func NewDispatcher(dispatcher routing.Dispatcher, callback ResponseCallback) *Dispatcher {
 	return &Dispatcher{
 		conns:      make(map[net.Destination]*connEntry),
 		dispatcher: dispatcher,
@@ -80,7 +81,7 @@ func (v *Dispatcher) Dispatch(ctx context.Context, destination net.Destination, 
 	conn := v.getInboundRay(ctx, destination)
 	outputStream := conn.link.Writer
 	if outputStream != nil {
-		if err := outputStream.WriteMultiBuffer(buf.NewMultiBufferValue(payload)); err != nil {
+		if err := outputStream.WriteMultiBuffer(buf.MultiBuffer{payload}); err != nil {
 			newError("failed to write first UDP payload").Base(err).WriteToLog(session.ExportIDToError(ctx))
 			conn.cancel()
 			return

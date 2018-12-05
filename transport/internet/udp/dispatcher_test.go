@@ -6,19 +6,20 @@ import (
 	"testing"
 	"time"
 
-	"v2ray.com/core"
 	"v2ray.com/core/common/buf"
 	"v2ray.com/core/common/net"
+	"v2ray.com/core/features/routing"
+	"v2ray.com/core/transport"
 	. "v2ray.com/core/transport/internet/udp"
 	"v2ray.com/core/transport/pipe"
 	. "v2ray.com/ext/assert"
 )
 
 type TestDispatcher struct {
-	OnDispatch func(ctx context.Context, dest net.Destination) (*core.Link, error)
+	OnDispatch func(ctx context.Context, dest net.Destination) (*transport.Link, error)
 }
 
-func (d *TestDispatcher) Dispatch(ctx context.Context, dest net.Destination) (*core.Link, error) {
+func (d *TestDispatcher) Dispatch(ctx context.Context, dest net.Destination) (*transport.Link, error) {
 	return d.OnDispatch(ctx, dest)
 }
 
@@ -28,6 +29,10 @@ func (d *TestDispatcher) Start() error {
 
 func (d *TestDispatcher) Close() error {
 	return nil
+}
+
+func (*TestDispatcher) Type() interface{} {
+	return routing.DispatcherType()
 }
 
 func TestSameDestinationDispatching(t *testing.T) {
@@ -50,15 +55,15 @@ func TestSameDestinationDispatching(t *testing.T) {
 
 	var count uint32
 	td := &TestDispatcher{
-		OnDispatch: func(ctx context.Context, dest net.Destination) (*core.Link, error) {
+		OnDispatch: func(ctx context.Context, dest net.Destination) (*transport.Link, error) {
 			atomic.AddUint32(&count, 1)
-			return &core.Link{Reader: downlinkReader, Writer: uplinkWriter}, nil
+			return &transport.Link{Reader: downlinkReader, Writer: uplinkWriter}, nil
 		},
 	}
 	dest := net.UDPDestination(net.LocalHostIP, 53)
 
 	b := buf.New()
-	b.WriteBytes('a', 'b', 'c', 'd')
+	b.WriteString("abcd")
 
 	var msgCount uint32
 	dispatcher := NewDispatcher(td, func(ctx context.Context, payload *buf.Buffer) {

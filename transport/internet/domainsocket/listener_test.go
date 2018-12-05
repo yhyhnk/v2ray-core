@@ -18,17 +18,18 @@ import (
 func TestListen(t *testing.T) {
 	assert := With(t)
 
-	ctx := internet.ContextWithStreamSettings(context.Background(), &internet.MemoryStreamConfig{
+	ctx := context.Background()
+	streamSettings := &internet.MemoryStreamConfig{
 		ProtocolName: "domainsocket",
 		ProtocolSettings: &Config{
 			Path: "/tmp/ts3",
 		},
-	})
-	listener, err := Listen(ctx, nil, net.Port(0), func(conn internet.Connection) {
+	}
+	listener, err := Listen(ctx, nil, net.Port(0), streamSettings, func(conn internet.Connection) {
 		defer conn.Close()
 
 		b := buf.New()
-		common.Must(b.Reset(buf.ReadFrom(conn)))
+		common.Must2(b.ReadFrom(conn))
 		assert(b.String(), Equals, "Request")
 
 		common.Must2(conn.Write([]byte("Response")))
@@ -36,7 +37,7 @@ func TestListen(t *testing.T) {
 	assert(err, IsNil)
 	defer listener.Close()
 
-	conn, err := Dial(ctx, net.Destination{})
+	conn, err := Dial(ctx, net.Destination{}, streamSettings)
 	assert(err, IsNil)
 	defer conn.Close()
 
@@ -44,7 +45,7 @@ func TestListen(t *testing.T) {
 	assert(err, IsNil)
 
 	b := buf.New()
-	common.Must(b.Reset(buf.ReadFrom(conn)))
+	common.Must2(b.ReadFrom(conn))
 
 	assert(b.String(), Equals, "Response")
 }
@@ -56,18 +57,19 @@ func TestListenAbstract(t *testing.T) {
 
 	assert := With(t)
 
-	ctx := internet.ContextWithStreamSettings(context.Background(), &internet.MemoryStreamConfig{
+	ctx := context.Background()
+	streamSettings := &internet.MemoryStreamConfig{
 		ProtocolName: "domainsocket",
 		ProtocolSettings: &Config{
 			Path:     "/tmp/ts3",
 			Abstract: true,
 		},
-	})
-	listener, err := Listen(ctx, nil, net.Port(0), func(conn internet.Connection) {
+	}
+	listener, err := Listen(ctx, nil, net.Port(0), streamSettings, func(conn internet.Connection) {
 		defer conn.Close()
 
 		b := buf.New()
-		common.Must(b.Reset(buf.ReadFrom(conn)))
+		common.Must2(b.ReadFrom(conn))
 		assert(b.String(), Equals, "Request")
 
 		common.Must2(conn.Write([]byte("Response")))
@@ -75,7 +77,7 @@ func TestListenAbstract(t *testing.T) {
 	assert(err, IsNil)
 	defer listener.Close()
 
-	conn, err := Dial(ctx, net.Destination{})
+	conn, err := Dial(ctx, net.Destination{}, streamSettings)
 	assert(err, IsNil)
 	defer conn.Close()
 
@@ -83,7 +85,7 @@ func TestListenAbstract(t *testing.T) {
 	assert(err, IsNil)
 
 	b := buf.New()
-	common.Must(b.Reset(buf.ReadFrom(conn)))
+	common.Must2(b.ReadFrom(conn))
 
 	assert(b.String(), Equals, "Response")
 }

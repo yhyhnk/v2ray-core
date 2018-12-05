@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 
@@ -118,10 +119,14 @@ func main() {
 		fmt.Println("Failed to start", err)
 		os.Exit(-1)
 	}
+	defer server.Close()
 
-	osSignals := make(chan os.Signal, 1)
-	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM)
+	// Explicitly triggering GC to remove garbage from config loading.
+	runtime.GC()
 
-	<-osSignals
-	server.Close()
+	{
+		osSignals := make(chan os.Signal, 1)
+		signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM)
+		<-osSignals
+	}
 }

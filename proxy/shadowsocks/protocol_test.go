@@ -7,7 +7,6 @@ import (
 	"v2ray.com/core/common/buf"
 	"v2ray.com/core/common/net"
 	"v2ray.com/core/common/protocol"
-	"v2ray.com/core/common/serial"
 	. "v2ray.com/core/proxy/shadowsocks"
 	. "v2ray.com/ext/assert"
 )
@@ -37,7 +36,7 @@ func TestUDPEncoding(t *testing.T) {
 	}
 
 	data := buf.New()
-	data.AppendSupplier(serial.WriteString("test string"))
+	common.Must2(data.WriteString("test string"))
 	encodedData, err := EncodeUDPPacket(request, data.Bytes())
 	assert(err, IsNil)
 
@@ -119,7 +118,7 @@ func TestTCPRequest(t *testing.T) {
 		writer, err := WriteTCPRequest(request, cache)
 		assert(err, IsNil)
 
-		assert(writer.WriteMultiBuffer(buf.NewMultiBufferValue(data)), IsNil)
+		assert(writer.WriteMultiBuffer(buf.MultiBuffer{data}), IsNil)
 
 		decodedRequest, reader, err := ReadTCPSession(request.User, cache)
 		assert(err, IsNil)
@@ -168,8 +167,8 @@ func TestUDPReaderWriter(t *testing.T) {
 
 	{
 		b := buf.New()
-		b.AppendSupplier(serial.WriteString("test payload"))
-		err := writer.WriteMultiBuffer(buf.NewMultiBufferValue(b))
+		common.Must2(b.WriteString("test payload"))
+		err := writer.WriteMultiBuffer(buf.MultiBuffer{b})
 		assert(err, IsNil)
 
 		payload, err := reader.ReadMultiBuffer()
@@ -179,8 +178,8 @@ func TestUDPReaderWriter(t *testing.T) {
 
 	{
 		b := buf.New()
-		b.AppendSupplier(serial.WriteString("test payload 2"))
-		err := writer.WriteMultiBuffer(buf.NewMultiBufferValue(b))
+		common.Must2(b.WriteString("test payload 2"))
+		err := writer.WriteMultiBuffer(buf.MultiBuffer{b})
 		assert(err, IsNil)
 
 		payload, err := reader.ReadMultiBuffer()

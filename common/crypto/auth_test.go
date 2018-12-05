@@ -30,8 +30,7 @@ func TestAuthenticationReaderWriter(t *testing.T) {
 	rawPayload := make([]byte, payloadSize)
 	rand.Read(rawPayload)
 
-	var payload buf.MultiBuffer
-	payload.Write(rawPayload)
+	payload := buf.MergeBytes(nil, rawPayload)
 	assert(payload.Len(), Equals, int32(payloadSize))
 
 	cache := bytes.NewBuffer(nil)
@@ -60,13 +59,13 @@ func TestAuthenticationReaderWriter(t *testing.T) {
 		mb2, err := reader.ReadMultiBuffer()
 		assert(err, IsNil)
 
-		mb.AppendMulti(mb2)
+		mb, _ = buf.MergeMulti(mb, mb2)
 	}
 
 	assert(mb.Len(), Equals, int32(payloadSize))
 
 	mbContent := make([]byte, payloadSize)
-	mb.Read(mbContent)
+	buf.SplitBytes(mb, mbContent)
 	assert(mbContent, Equals, rawPayload)
 
 	_, err = reader.ReadMultiBuffer()
@@ -97,11 +96,11 @@ func TestAuthenticationReaderWriterPacket(t *testing.T) {
 	var payload buf.MultiBuffer
 	pb1 := buf.New()
 	pb1.Write([]byte("abcd"))
-	payload.Append(pb1)
+	payload = append(payload, pb1)
 
 	pb2 := buf.New()
 	pb2.Write([]byte("efgh"))
-	payload.Append(pb2)
+	payload = append(payload, pb2)
 
 	assert(writer.WriteMultiBuffer(payload), IsNil)
 	assert(cache.Len(), GreaterThan, int32(0))
@@ -117,10 +116,10 @@ func TestAuthenticationReaderWriterPacket(t *testing.T) {
 	mb, err := reader.ReadMultiBuffer()
 	assert(err, IsNil)
 
-	b1 := mb.SplitFirst()
+	mb, b1 := buf.SplitFirst(mb)
 	assert(b1.String(), Equals, "abcd")
 
-	b2 := mb.SplitFirst()
+	mb, b2 := buf.SplitFirst(mb)
 	assert(b2.String(), Equals, "efgh")
 
 	assert(mb.IsEmpty(), IsTrue)

@@ -56,7 +56,9 @@ func TestCommanderRemoveHandler(t *testing.T) {
 				Rule: []*router.RoutingRule{
 					{
 						InboundTag: []string{"api"},
-						Tag:        "api",
+						TargetTag: &router.RoutingRule_Tag{
+							Tag: "api",
+						},
 					},
 				},
 			}),
@@ -69,11 +71,9 @@ func TestCommanderRemoveHandler(t *testing.T) {
 					Listen:    net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 			{
@@ -83,11 +83,9 @@ func TestCommanderRemoveHandler(t *testing.T) {
 					Listen:    net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -129,6 +127,7 @@ func TestCommanderRemoveHandler(t *testing.T) {
 
 	cmdConn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", cmdPort), grpc.WithInsecure(), grpc.WithBlock())
 	assert(err, IsNil)
+	defer cmdConn.Close()
 
 	hsClient := command.NewHandlerServiceClient(cmdConn)
 	resp, err := hsClient.RemoveInbound(context.Background(), &command.RemoveInboundRequest{
@@ -173,7 +172,9 @@ func TestCommanderAddRemoveUser(t *testing.T) {
 				Rule: []*router.RoutingRule{
 					{
 						InboundTag: []string{"api"},
-						Tag:        "api",
+						TargetTag: &router.RoutingRule_Tag{
+							Tag: "api",
+						},
 					},
 				},
 			}),
@@ -213,11 +214,9 @@ func TestCommanderAddRemoveUser(t *testing.T) {
 					Listen:    net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -307,6 +306,7 @@ func TestCommanderAddRemoveUser(t *testing.T) {
 
 	cmdConn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", cmdPort), grpc.WithInsecure(), grpc.WithBlock())
 	assert(err, IsNil)
+	defer cmdConn.Close()
 
 	hsClient := command.NewHandlerServiceClient(cmdConn)
 	resp, err := hsClient.AlterInbound(context.Background(), &command.AlterInboundRequest{
@@ -381,7 +381,9 @@ func TestCommanderStats(t *testing.T) {
 				Rule: []*router.RoutingRule{
 					{
 						InboundTag: []string{"api"},
-						Tag:        "api",
+						TargetTag: &router.RoutingRule_Tag{
+							Tag: "api",
+						},
 					},
 				},
 			}),
@@ -518,6 +520,7 @@ func TestCommanderStats(t *testing.T) {
 
 	cmdConn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", cmdPort), grpc.WithInsecure(), grpc.WithBlock())
 	assert(err, IsNil)
+	defer cmdConn.Close()
 
 	const name = "user>>>test>>>traffic>>>uplink"
 	sClient := statscmd.NewStatsServiceClient(cmdConn)

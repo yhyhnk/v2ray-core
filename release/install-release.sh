@@ -107,6 +107,10 @@ sysArch(){
         VDIS="mips"
     elif [[ "$ARCH" == *"s390x"* ]]; then
         VDIS="s390x"
+    elif [[ "$ARCH" == "ppc64le" ]]; then
+        VDIS="ppc64le"
+    elif [[ "$ARCH" == "ppc64" ]]; then
+        VDIS="ppc64"
     fi
     return 0
 }
@@ -193,9 +197,15 @@ getVersion(){
     else
         VER=`/usr/bin/v2ray/v2ray -version 2>/dev/null`
         RETVAL="$?"
-        CUR_VER=`echo $VER | head -n 1 | cut -d " " -f2`
+        CUR_VER=`echo $VER | head -n 1 | cut -d " " -f2 | cut -d. -f-2`
+        if [[ ${CUR_VER} != v* ]]; then
+            CUR_VER=v${CUR_VER}
+        fi
         TAG_URL="https://api.github.com/repos/v2ray/v2ray-core/releases/latest"
         NEW_VER=`curl ${PROXY} -s ${TAG_URL} --connect-timeout 10| grep 'tag_name' | cut -d\" -f4`
+        if [[ ${NEW_VER} != v* ]]; then
+          NEW_VER=v${NEW_VER}
+        fi
         if [[ $? -ne 0 ]] || [[ $NEW_VER == "" ]]; then
             colorEcho ${RED} "Failed to fetch release information. Please check your network or try again."
             return 3

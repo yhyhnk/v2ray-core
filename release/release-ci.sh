@@ -32,13 +32,13 @@ chmod +x bazel-${BAZEL_VER}-installer-linux-x86_64.sh
 ./bazel-${BAZEL_VER}-installer-linux-x86_64.sh
 popd
 
-gsutil cp ${SIGN_KEY_PATH} /v2ray/build/sign_key.asc
-echo ${SIGN_KEY_PASS} | gpg --passphrase-fd 0 --batch --import /v2ray/build/sign_key.asc
+gsutil cp ${SIGN_KEY_PATH} /v2/build/sign_key.asc
+echo ${SIGN_KEY_PASS} | gpg --passphrase-fd 0 --batch --import /v2/build/sign_key.asc
 
-curl -L -o /v2ray/build/releases https://api.github.com/repos/v2ray/v2ray-core/releases
+curl -L -o /v2/build/releases https://api.github.com/repos/v2ray/v2ray-core/releases
 
 GO_INSTALL=golang.tar.gz
-curl -L -o ${GO_INSTALL} https://storage.googleapis.com/golang/go1.11.1.linux-amd64.tar.gz
+curl -L -o ${GO_INSTALL} https://storage.googleapis.com/golang/go1.11.2.linux-amd64.tar.gz
 tar -C /usr/local -xzf ${GO_INSTALL}
 export PATH=$PATH:/usr/local/go/bin
 
@@ -58,8 +58,20 @@ sed -i "s/\(version *= *\"\).*\(\"\)/\1$VERN\2/g" core.go
 sed -i "s/\(build *= *\"\).*\(\"\)/\1$BUILDN\2/g" core.go
 popd
 
+# Update geoip.dat
+GEOIP_TAG=$(curl --silent "https://api.github.com/repos/v2ray/geoip/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+curl -L -o release/config/geoip.dat "https://github.com/v2ray/geoip/releases/download/${GEOIP_TAG}/geoip.dat"
+
 # Take a snapshot of all required source code
 pushd $GOPATH/src
+
+# Flatten vendor directories
+cp -r v2ray.com/core/vendor/github.com/ .
+rm -rf v2ray.com/core/vendor/
+cp -r github.com/lucas-clemente/quic-go/vendor/github.com/ .
+rm -rf github.com/lucas-clemente/quic-go/vendor/
+
+# Create zip file for all sources
 zip -9 -r /v2/build/src_all.zip * -x '*.git*'
 popd
 
@@ -103,6 +115,8 @@ upload ${ART_ROOT}/v2ray-linux-mips64.zip
 upload ${ART_ROOT}/v2ray-linux-mips64le.zip
 upload ${ART_ROOT}/v2ray-linux-mips.zip
 upload ${ART_ROOT}/v2ray-linux-mipsle.zip
+upload ${ART_ROOT}/v2ray-linux-ppc64.zip
+upload ${ART_ROOT}/v2ray-linux-ppc64le.zip
 upload ${ART_ROOT}/v2ray-linux-s390x.zip
 upload ${ART_ROOT}/v2ray-freebsd-64.zip
 upload ${ART_ROOT}/v2ray-freebsd-32.zip

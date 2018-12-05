@@ -1,13 +1,15 @@
 package http_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"testing"
 	"time"
 
+	"v2ray.com/core/common"
 	"v2ray.com/core/common/buf"
 	"v2ray.com/core/common/net"
-	"v2ray.com/core/common/serial"
 	. "v2ray.com/core/transport/internet/headers/http"
 	. "v2ray.com/ext/assert"
 )
@@ -17,7 +19,7 @@ func TestReaderWriter(t *testing.T) {
 
 	cache := buf.New()
 	b := buf.New()
-	b.AppendSupplier(serial.WriteString("abcd" + ENDING))
+	common.Must2(b.WriteString("abcd" + ENDING))
 	writer := NewHeaderWriter(b)
 	err := writer.Write(cache)
 	assert(err, IsNil)
@@ -52,6 +54,20 @@ func TestRequestHeader(t *testing.T) {
 	assert(err, IsNil)
 
 	assert(cache.String(), Equals, "GET / HTTP/1.1\r\nTest: Value\r\n\r\n")
+}
+
+func TestLongRequestHeader(t *testing.T) {
+	payload := make([]byte, buf.Size+2)
+	common.Must2(rand.Read(payload[:buf.Size-2]))
+	copy(payload[buf.Size-2:], []byte(ENDING))
+	payload = append(payload, []byte("abcd")...)
+
+	reader := HeaderReader{}
+	b, err := reader.Read(bytes.NewReader(payload))
+	common.Must(err)
+	if b.String() != "abcd" {
+		t.Error("expect content abcd, but actually ", b.String())
+	}
 }
 
 func TestConnection(t *testing.T) {
