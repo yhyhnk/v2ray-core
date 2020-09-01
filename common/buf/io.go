@@ -3,6 +3,7 @@ package buf
 import (
 	"io"
 	"net"
+	"os"
 	"syscall"
 	"time"
 )
@@ -57,7 +58,8 @@ func NewReader(reader io.Reader) Reader {
 		}
 	}
 
-	if useReadv {
+	_, isFile := reader.(*os.File)
+	if !isFile && useReadv {
 		if sc, ok := reader.(syscall.Conn); ok {
 			rawConn, err := sc.SyscallConn()
 			if err != nil {
@@ -69,6 +71,17 @@ func NewReader(reader io.Reader) Reader {
 	}
 
 	return &SingleReader{
+		Reader: reader,
+	}
+}
+
+// NewPacketReader creates a new PacketReader based on the given reader.
+func NewPacketReader(reader io.Reader) Reader {
+	if mr, ok := reader.(Reader); ok {
+		return mr
+	}
+
+	return &PacketReader{
 		Reader: reader,
 	}
 }

@@ -1,3 +1,5 @@
+// +build !confonly
+
 package quic
 
 import (
@@ -6,10 +8,10 @@ import (
 	"errors"
 	"time"
 
-	quic "github.com/lucas-clemente/quic-go"
 	"v2ray.com/core/common"
 	"v2ray.com/core/common/buf"
 	"v2ray.com/core/common/net"
+	quic "v2ray.com/core/external/github.com/lucas-clemente/quic-go"
 	"v2ray.com/core/transport/internet"
 )
 
@@ -149,60 +151,11 @@ func (c *interConn) Read(b []byte) (int, error) {
 	return c.stream.Read(b)
 }
 
-func (c *interConn) ReadMultiBuffer() (buf.MultiBuffer, error) {
-	firstBuffer, err := buf.ReadBuffer(c)
-	if err != nil {
-		return nil, err
-	}
-
-	const BufferCount = 16
-	mb := make(buf.MultiBuffer, 0, BufferCount)
-	mb = append(mb, firstBuffer)
-	for len(mb) < BufferCount && c.stream.HasMoreData() {
-		b := buf.New()
-		if _, err := b.ReadFrom(c.stream); err != nil {
-			b.Release()
-			break
-		}
-		mb = append(mb, b)
-	}
-
-	return mb, nil
-}
-
 func (c *interConn) WriteMultiBuffer(mb buf.MultiBuffer) error {
-	if mb.IsEmpty() {
-		return nil
-	}
-
-	if len(mb) == 1 {
-		_, err := c.Write(mb[0].Bytes())
-		buf.ReleaseMulti(mb)
-		return err
-	}
-
-	b := getBuffer()
-	defer putBuffer(b)
-
-	reader := buf.MultiBufferContainer{
-		MultiBuffer: mb,
-	}
-	defer reader.Close()
-
-	for {
-		nBytes, err := reader.Read(b[:1200])
-		if err != nil {
-			break
-		}
-		if nBytes == 0 {
-			continue
-		}
-		if _, err := c.Write(b[:nBytes]); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	mb = buf.Compact(mb)
+	mb, err := buf.WriteMultiBuffer(c, mb)
+	buf.ReleaseMulti(mb)
+	return err
 }
 
 func (c *interConn) Write(b []byte) (int, error) {
